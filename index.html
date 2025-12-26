@@ -1,59 +1,131 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Shock Response Spectrum (SRS) Calculator</title>
-    <!-- Plotly.js -->
-    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+    <title>Dynamics Toolkit</title>
     <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500;700&family=Inter:wght@400;500;600;700&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #0d1117;
+            --panel-bg: #161b22;
+            --text-primary: #f0f6fc;
+            --text-secondary: #8b949e;
+            --accent-color: #58a6ff;
+            --accent-hover: #1f6feb;
+            --border-color: #30363d;
+            --font-heading: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            --font-mono: 'Roboto Mono', monospace;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            font-family: var(--font-heading);
+            line-height: 1.5;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 40px auto;
+            text-align: center;
+        }
+
+        header {
+            margin-bottom: 60px;
+        }
+
+        h1 {
+            font-size: 3rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+            background: linear-gradient(90deg, #58a6ff, #a371f7);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .subtitle {
+            font-size: 1.2rem;
+            color: var(--text-secondary);
+        }
+
+        .tools-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+            text-align: left;
+        }
+
+        .tool-card {
+            background-color: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 20px;
+            text-decoration: none;
+            color: inherit;
+            transition: transform 0.2s, border-color 0.2s;
+            display: block;
+        }
+
+        .tool-card:hover {
+            transform: translateY(-2px);
+            border-color: var(--accent-color);
+        }
+
+        .tool-card h2 {
+            font-size: 1.2rem;
+            margin-bottom: 8px;
+            color: var(--accent-color);
+        }
+
+        .tool-card p {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        footer {
+            margin-top: 60px;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+    </style>
 </head>
+
 <body>
     <div class="container">
         <header>
-            <h1>Shock Response Spectrum Calculator</h1>
-            <p class="subtitle">Created by a Structural Dynamics Engineer</p>
+            <h1>Dynamics Toolkit</h1>
+            <p class="subtitle">Engineering Tools for Structural Dynamics</p>
         </header>
 
-        <main>
-            <section class="controls-panel">
-                <div class="control-group">
-                    <label for="pulseType">Pulse Type</label>
-                    <select id="pulseType">
-                        <option value="half-sine">Half-Sine</option>
-                        <option value="sawtooth">Terminal Peak Sawtooth</option>
-                    </select>
-                </div>
+        <main class="tools-grid">
+            <a href="srs-calculator/index.html" class="tool-card">
+                <h2>Shock Response Spectrum (SRS)</h2>
+                <p>Calculate SRS from Half-Sine and Sawtooth pulses using client-side SDOF integration.</p>
+            </a>
 
-                <div class="control-group">
-                    <label for="amplitude">Amplitude (G)</label>
-                    <input type="number" id="amplitude" value="10" min="0.1" step="0.1">
-                </div>
-
-                <div class="control-group">
-                    <label for="duration">Duration (ms)</label>
-                    <input type="number" id="duration" value="11" min="0.1" step="0.1">
-                </div>
-
-                <div class="control-group">
-                    <label for="qFactor">Q-Factor</label>
-                    <input type="number" id="qFactor" value="10" min="1" step="1">
-                </div>
-
-                <button id="calculateBtn">Calculate SRS</button>
-            </section>
-
-            <section class="results-panel">
-                <div id="plotDiv"></div>
-            </section>
+            <!-- Future tools will go here -->
+            <div class="tool-card" style="opacity: 0.5; cursor: default;">
+                <h2 style="color: var(--text-secondary);">Coming Soon</h2>
+                <p>More dynamics tools are in development.</p>
+            </div>
         </main>
 
         <footer>
-            <p>Stateless Tool | Runs entirely in your browser</p>
+            <p>&copy; 2025 Dynamics Toolkit</p>
         </footer>
     </div>
-    <script src="script.js"></script>
 </body>
+
 </html>
