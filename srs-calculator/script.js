@@ -192,20 +192,21 @@ function generateLogFreqs(start, end, points) {
     return arr;
 }
 
-function plotResults(freqs, srs, time, pulse, type, amp, dur) {
+function plotResults(freqs, srs, timeVector, pulseVector, type, amp, dur) {
+    // 1. Plot SRS
     const srsTrace = {
         x: freqs,
         y: srs,
         mode: 'lines+markers',
         type: 'scatter',
-        name: 'SRS (Q=10)',
+        name: `SRS (Q=10)`,
         line: { color: '#58a6ff', width: 3 },
         marker: { size: 6 }
     };
 
-    const layout = {
+    const srsLayout = {
         title: {
-            text: `Shock Response Spectrum (${type}, ${amp}G, ${dur}ms)`,
+            text: `Shock Response Spectrum (Q=10)`,
             font: { color: '#f0f6fc' }
         },
         paper_bgcolor: '#161b22',
@@ -222,14 +223,46 @@ function plotResults(freqs, srs, time, pulse, type, amp, dur) {
             color: '#8b949e',
             gridcolor: '#30363d'
         },
-        showlegend: true,
-        legend: {
-            font: { color: '#f0f6fc' }
-        },
-        margin: { t: 50, r: 30, l: 60, b: 50 }
+        showlegend: false,
+        margin: { t: 40, r: 30, l: 60, b: 50 }
     };
 
     const config = { responsive: true };
 
-    Plotly.newPlot('plotDiv', [srsTrace], layout, config);
+    Plotly.newPlot('plotDiv', [srsTrace], srsLayout, config);
+
+    // 2. Plot Time Domain Pulse
+    const pulseTrace = {
+        x: timeVector.map(t => t * 1000), // Convert to ms
+        y: pulseVector,
+        mode: 'lines',
+        type: 'scatter',
+        name: 'Input Pulse',
+        line: { color: '#238636', width: 2 },
+        fill: 'tozeroy',
+        fillcolor: 'rgba(35, 134, 54, 0.2)'
+    };
+
+    const pulseLayout = {
+        title: {
+            text: `Input Pulse: ${type} (${amp}G, ${dur}ms)`,
+            font: { color: '#f0f6fc', size: 14 }
+        },
+        paper_bgcolor: '#161b22',
+        plot_bgcolor: '#161b22',
+        xaxis: {
+            title: 'Time (ms)',
+            color: '#8b949e',
+            gridcolor: '#30363d'
+        },
+        yaxis: {
+            title: 'Acceleration (G)',
+            color: '#8b949e',
+            gridcolor: '#30363d'
+        },
+        showlegend: false,
+        margin: { t: 40, r: 30, l: 60, b: 40 }
+    };
+
+    Plotly.newPlot('pulsePlotDiv', [pulseTrace], pulseLayout, config);
 }
