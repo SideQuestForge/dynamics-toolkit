@@ -1,6 +1,16 @@
 document.addEventListener('DOMContentLoaded', () => {
     const calculateBtn = document.getElementById('calculateBtn');
 
+    // Theme Toggle
+    const themeToggle = document.getElementById('themeToggle');
+    themeToggle.addEventListener('click', () => {
+        const currentTheme = document.documentElement.getAttribute('data-theme');
+        const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+        document.documentElement.setAttribute('data-theme', newTheme);
+        // Re-calculate to update plots with new colors
+        calculateSRS();
+    });
+
     // Initial Calc
     calculateSRS();
 
@@ -15,6 +25,17 @@ document.addEventListener('DOMContentLoaded', () => {
         el.addEventListener('change', calculateSRS);
     });
 });
+
+function getThemeColors() {
+    const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+    return {
+        paper_bgcolor: isLight ? '#f6f8fa' : '#161b22',
+        plot_bgcolor: isLight ? '#f6f8fa' : '#161b22',
+        font_color: isLight ? '#24292f' : '#f0f6fc',
+        grid_color: isLight ? '#d0d7de' : '#30363d',
+        accent_color: isLight ? '#0969da' : '#58a6ff'
+    };
+}
 
 function calculateSRS() {
     // 1. Get Inputs
@@ -193,6 +214,8 @@ function generateLogFreqs(start, end, points) {
 }
 
 function plotResults(freqs, srs, timeVector, pulseVector, type, amp, dur) {
+    const theme = getThemeColors();
+
     // 1. Plot SRS
     const srsTrace = {
         x: freqs,
@@ -200,31 +223,32 @@ function plotResults(freqs, srs, timeVector, pulseVector, type, amp, dur) {
         mode: 'lines+markers',
         type: 'scatter',
         name: `SRS (Q=10)`,
-        line: { color: '#58a6ff', width: 3 },
+        line: { color: theme.accent_color, width: 3 },
         marker: { size: 6 }
     };
 
     const srsLayout = {
         title: {
             text: `Shock Response Spectrum (Q=10)`,
-            font: { color: '#f0f6fc' }
+            font: { color: theme.font_color }
         },
-        paper_bgcolor: '#161b22',
-        plot_bgcolor: '#161b22',
+        paper_bgcolor: theme.paper_bgcolor,
+        plot_bgcolor: theme.plot_bgcolor,
         xaxis: {
             type: 'log',
             title: 'Natural Frequency (Hz)',
-            color: '#8b949e',
-            gridcolor: '#30363d'
+            color: '#8b949e', // Keep secondary text color consistent or map to theme
+            gridcolor: theme.grid_color
         },
         yaxis: {
             type: 'log',
             title: 'Peak Absolute Acceleration (G)',
             color: '#8b949e',
-            gridcolor: '#30363d'
+            gridcolor: theme.grid_color
         },
         showlegend: false,
-        margin: { t: 40, r: 30, l: 60, b: 50 }
+        margin: { t: 40, r: 30, l: 60, b: 50 },
+        font: { color: theme.font_color }
     };
 
     const config = { responsive: true };
@@ -246,22 +270,23 @@ function plotResults(freqs, srs, timeVector, pulseVector, type, amp, dur) {
     const pulseLayout = {
         title: {
             text: `Input Pulse: ${type} (${amp}G, ${dur}ms)`,
-            font: { color: '#f0f6fc', size: 14 }
+            font: { color: theme.font_color, size: 14 }
         },
-        paper_bgcolor: '#161b22',
-        plot_bgcolor: '#161b22',
+        paper_bgcolor: theme.paper_bgcolor,
+        plot_bgcolor: theme.plot_bgcolor,
         xaxis: {
             title: 'Time (ms)',
             color: '#8b949e',
-            gridcolor: '#30363d'
+            gridcolor: theme.grid_color
         },
         yaxis: {
             title: 'Acceleration (G)',
             color: '#8b949e',
-            gridcolor: '#30363d'
+            gridcolor: theme.grid_color
         },
         showlegend: false,
-        margin: { t: 40, r: 30, l: 60, b: 40 }
+        margin: { t: 40, r: 30, l: 60, b: 40 },
+        font: { color: theme.font_color }
     };
 
     Plotly.newPlot('pulsePlotDiv', [pulseTrace], pulseLayout, config);

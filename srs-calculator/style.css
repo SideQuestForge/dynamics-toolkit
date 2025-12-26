@@ -10,6 +10,16 @@
     --font-mono: 'Roboto Mono', monospace;
 }
 
+[data-theme="light"] {
+    --bg-color: #ffffff;
+    --panel-bg: #f6f8fa;
+    --text-primary: #24292f;
+    --text-secondary: #57606a;
+    --accent-color: #0969da;
+    --accent-hover: #218bff;
+    --border-color: #d0d7de;
+}
+
 * {
     box-sizing: border-box;
     margin: 0;
