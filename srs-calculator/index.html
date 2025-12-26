@@ -42,15 +42,27 @@
                     <select id="pulseType">
                         <option value="half-sine">Half-Sine</option>
                         <option value="sawtooth">Terminal Peak Sawtooth</option>
+                        <option value="custom">Custom (CSV)</option>
                     </select>
                 </div>
 
-                <div class="control-group">
+                <div class="control-group" id="fileGroup" style="display: none;">
+                    <label for="csvFile">Upload CSV (Time, Accel)</label>
+                    <input type="file" id="csvFile" accept=".csv,.txt">
+                    <p id="fileNameDisplay"
+                        style="font-size: 0.9rem; color: var(--accent-color); margin-top: 5px; word-break: break-all;">
+                    </p>
+                    <p style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 5px;">Format:
+                        <code>Time(s), Accel(G)</code>
+                    </p>
+                </div>
+
+                <div class="control-group" id="ampGroup">
                     <label for="amplitude">Amplitude (G)</label>
                     <input type="number" id="amplitude" value="10" min="0.1" step="0.1">
                 </div>
 
-                <div class="control-group">
+                <div class="control-group" id="durGroup">
                     <label for="duration">Duration (ms)</label>
                     <input type="number" id="duration" value="11" min="0.1" step="0.1">
                 </div>

@@ -20,11 +20,78 @@ document.addEventListener('DOMContentLoaded', () => {
     const inputs = ['pulseType', 'amplitude', 'duration', 'qFactor'];
     inputs.forEach(id => {
         const el = document.getElementById(id);
-        // Use 'input' for real-time updates while typing, 'change' for verify
-        el.addEventListener('input', calculateSRS);
-        el.addEventListener('change', calculateSRS);
+        el.addEventListener('input', handleInput);
+        el.addEventListener('change', handleInput);
     });
+
+    // File Input Listener
+    document.getElementById('csvFile').addEventListener('change', handleFileUpload);
 });
+
+let customData = null; // Stores { time: [], accel: [] }
+
+function handleInput(e) {
+    const pulseType = document.getElementById('pulseType').value;
+    const fileGroup = document.getElementById('fileGroup');
+    const ampGroup = document.getElementById('ampGroup');
+    const durGroup = document.getElementById('durGroup');
+
+    // Toggle Visibility
+    if (pulseType === 'custom') {
+        fileGroup.style.display = 'block';
+        ampGroup.style.display = 'none';
+        durGroup.style.display = 'none';
+    } else {
+        fileGroup.style.display = 'none';
+        ampGroup.style.display = 'block';
+        durGroup.style.display = 'block';
+    }
+
+    calculateSRS();
+}
+
+function handleFileUpload(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    document.getElementById('fileNameDisplay').textContent = `Selected: ${file.name}`;
+
+    const reader = new FileReader();
+    reader.onload = function (event) {
+        const text = event.target.result;
+        parseCSV(text, file.name);
+        calculateSRS();
+    };
+    reader.readAsText(file);
+}
+
+function parseCSV(text, fileName) {
+    const lines = text.trim().split(/\r\n|\n/);
+    const time = [];
+    const accel = [];
+
+    lines.forEach(line => {
+        // Skip headers if line doesn't start with number
+        if (line.match(/^[a-zA-Z]/)) return;
+
+        const parts = line.split(/,|\t/); // Split by comma or tab
+        if (parts.length >= 2) {
+            const t = parseFloat(parts[0]);
+            const a = parseFloat(parts[1]);
+            if (!isNaN(t) && !isNaN(a)) {
+                time.push(t);
+                accel.push(a);
+            }
+        }
+    });
+
+    if (time.length > 0) {
+        customData = { time, accel, name: fileName };
+    } else {
+        alert("Could not parse CSV. Ensure format is: Time, Accel");
+        customData = null;
+    }
+}
 
 function getThemeColors() {
     const isLight = document.documentElement.getAttribute('data-theme') === 'light';
@@ -40,48 +107,46 @@ function getThemeColors() {
 function calculateSRS() {
     // 1. Get Inputs
     const pulseType = document.getElementById('pulseType').value;
-    const amplitude = parseFloat(document.getElementById('amplitude').value);
-    const duration = parseFloat(document.getElementById('duration').value); // ms
     const qFactor = parseFloat(document.getElementById('qFactor').value);
     const dampingRatio = 1 / (2 * qFactor);
 
-    if (isNaN(amplitude) || isNaN(duration) || isNaN(qFactor)) {
-        alert("Please check your inputs.");
-        return;
-    }
+    if (isNaN(qFactor)) return;
 
-    const durationSec = duration / 1000.0;
+    let timeVector = [], accelVector = [], dt = 0;
+    let displayAmp = document.getElementById('amplitude').value;
+    let displayDur = document.getElementById('duration').value;
 
-    // 2. Generate Pulse Time History
-    // We need a sampling rate high enough for the highest frequency of interest in the SRS.
-    // Typically SRS goes up to 2000Hz or 10000Hz.
-    // Let's assume max freq we care about is 10,000 Hz.
-    // Fs should be at least 10x fmax for good integration stability? 
-    // Actually, for half-sine pulse of duration T, the frequency content is mainly below 1/T.
-    // But SRS needs to calculate response at high freq.
-    // Let's pick a fixed dt small enough. 100k samples/sec = 1e-5 sec.
+    if (pulseType === 'custom') {
+        if (!customData) return; // No file yet
+        timeVector = customData.time;
+        accelVector = customData.accel;
+        displayAmp = customData.name || 'Custom CSV';
+        displayDur = '';
 
-    const fMAX_SRS = 2000; // Hz - typical for standard shock specs
-    const dt = 1 / (20 * fMAX_SRS); // Over-sample to ensure stability
+        // Calculate average dt
+        if (timeVector.length > 1) {
+            dt = (timeVector[timeVector.length - 1] - timeVector[0]) / (timeVector.length - 1);
+        } else {
+            return;
+        }
+    } else {
+        const amplitude = parseFloat(document.getElementById('amplitude').value);
+        const duration = parseFloat(document.getElementById('duration').value); // ms
 
-    // Total time for simulation. Pulse is Td. 
-    // Response decay takes time. We should simulate for enough time to see the peak response.
-    // For damping Q=10, decay takes a while. 
-    // Duration + 5 * TimeConstant of system?
-    // Let's iterate until T_total = T_pulse or more. 
-    // Actually SDOF response often peaks during the pulse for low freq, and after for high Q? 
-    // Let's simulate for 5 * duration or 0.1 sec, whichever is longer.
+        if (isNaN(amplitude) || isNaN(duration)) return;
 
-    let simDuration = Math.max(5 * durationSec, 0.1);
+        const durationSec = duration / 1000.0;
+        const fMAX_SRS = 2000;
+        dt = 1 / (20 * fMAX_SRS);
 
-    const timeVector = [];
-    const accelVector = [];
-    const numSteps = Math.ceil(simDuration / dt);
+        let simDuration = Math.max(5 * durationSec, 0.1);
+        const numSteps = Math.ceil(simDuration / dt);
 
-    for (let i = 0; i <= numSteps; i++) {
-        const t = i * dt;
-        timeVector.push(t);
-        accelVector.push(getPulseAcceleration(t, pulseType, amplitude, durationSec));
+        for (let i = 0; i <= numSteps; i++) {
+            const t = i * dt;
+            timeVector.push(t);
+            accelVector.push(getPulseAcceleration(t, pulseType, amplitude, durationSec));
+        }
     }
 
     // 3. Calculate SRS
@@ -95,7 +160,7 @@ function calculateSRS() {
     });
 
     // 4. Plot
-    plotResults(freqs, srsMaxAbsAccel, timeVector, accelVector, pulseType, amplitude, duration);
+    plotResults(freqs, srsMaxAbsAccel, timeVector, accelVector, pulseType, displayAmp, displayDur);
 }
 
 function getPulseAcceleration(t, type, amp, duration) {
@@ -267,9 +332,14 @@ function plotResults(freqs, srs, timeVector, pulseVector, type, amp, dur) {
         fillcolor: 'rgba(35, 134, 54, 0.2)'
     };
 
+    let pulseTitle = `Input Pulse: ${type} (${amp}G, ${dur}ms)`;
+    if (type === 'custom') {
+        pulseTitle = `Input Pulse: ${amp}`;
+    }
+
     const pulseLayout = {
         title: {
-            text: `Input Pulse: ${type} (${amp}G, ${dur}ms)`,
+            text: pulseTitle,
             font: { color: theme.font_color, size: 14 }
         },
         paper_bgcolor: theme.paper_bgcolor,
