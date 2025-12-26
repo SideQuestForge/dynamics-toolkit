@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dynamics Toolkit</title>
+    <title>Dynamics Toolkit | SideQuestForge</title>
     <!-- Google Fonts -->
     <link
         href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500;700&family=Inter:wght@400;500;600;700&display=swap"
@@ -46,6 +46,16 @@
             margin-bottom: 60px;
         }
 
+        .brand {
+            font-size: 0.9rem;
+            color: var(--accent-color);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 600;
+            margin-bottom: 10px;
+            display: block;
+        }
+
         h1 {
             font-size: 3rem;
             font-weight: 700;
@@ -58,6 +68,24 @@
         .subtitle {
             font-size: 1.2rem;
             color: var(--text-secondary);
+        }
+
+        .about-section {
+            background-color: rgba(56, 139, 253, 0.1);
+            border: 1px solid rgba(56, 139, 253, 0.3);
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 40px;
+            text-align: left;
+        }
+
+        .about-section p {
+            color: var(--text-primary);
+            font-size: 1rem;
+        }
+
+        .about-section strong {
+            color: var(--accent-color);
         }
 
         .tools-grid {
@@ -98,6 +126,8 @@
             margin-top: 60px;
             font-size: 0.8rem;
             color: var(--text-secondary);
+            border-top: 1px solid var(--border-color);
+            padding-top: 20px;
         }
     </style>
 </head>
@@ -105,9 +135,16 @@
 <body>
     <div class="container">
         <header>
+            <span class="brand">SideQuestForge</span>
             <h1>Dynamics Toolkit</h1>
             <p class="subtitle">Engineering Tools for Structural Dynamics</p>
         </header>
+
+        <section class="about-section">
+            <p><strong>SideQuestForge</strong> is the engineering lab of a <strong>Structural Dynamics Engineer at
+                    NASA</strong>. These tools are built to solve the problems I face daily—automating the repetitive,
+                "solved" problems so we can focus on the hard ones.</p>
+        </section>
 
         <main class="tools-grid">
             <a href="srs-calculator/index.html" class="tool-card">
@@ -115,7 +152,6 @@
                 <p>Calculate SRS from Half-Sine and Sawtooth pulses using client-side SDOF integration.</p>
             </a>
 
-            <!-- Future tools will go here -->
             <div class="tool-card" style="opacity: 0.5; cursor: default;">
                 <h2 style="color: var(--text-secondary);">Coming Soon</h2>
                 <p>More dynamics tools are in development.</p>
@@ -123,7 +159,7 @@
         </main>
 
         <footer>
-            <p>&copy; 2025 Dynamics Toolkit</p>
+            <p>Built by <strong>SideQuestForge</strong> | Engineering Tools for Structural Dynamics</p>
         </footer>
     </div>
 </body>

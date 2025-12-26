@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,14 +8,23 @@
     <!-- Plotly.js -->
     <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
     <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500;700&family=Inter:wght@400;500;600;700&display=swap"
+        rel="stylesheet">
+    <!-- MathJax -->
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     <link rel="stylesheet" href="style.css">
 </head>
+
 <body>
     <div class="container">
         <header>
+            <p
+                style="color: #58a6ff; font-size: 0.8rem; font-weight: 700; text-transform: uppercase; margin-bottom: 5px;">
+                SideQuestForge</p>
             <h1>Shock Response Spectrum Calculator</h1>
-            <p class="subtitle">Created by a Structural Dynamics Engineer</p>
+            <p class="subtitle">Built by a Structural Dynamics Engineer at NASA</p>
         </header>
 
         <main>
@@ -50,10 +60,54 @@
             </section>
         </main>
 
+        <section class="theory-panel">
+            <h2>The Mathematics</h2>
+            <div class="theory-content">
+                <p>This tool computes the Shock Response Spectrum (SRS) by calculating the time-domain response of a
+                    Single Degree of Freedom (SDOF) system to the input pulse.</p>
+
+                <h3>Equation of Motion</h3>
+                <p>For each natural frequency \( f_n \), the system responds according to the SDOF equation of motion:
+                </p>
+                <div class="equation">
+                    $$ \ddot{z} + 2\zeta\omega_n \dot{z} + \omega_n^2 z = -\ddot{y}(t) $$
+                </div>
+                <p>Where:</p>
+                <ul>
+                    <li>\( z(t) \): Relative displacement</li>
+                    <li>\( \omega_n = 2\pi f_n \): Natural angular frequency</li>
+                    <li>\( \zeta = \frac{1}{2Q} \): Damping ratio</li>
+                    <li>\( \ddot{y}(t) \): Base acceleration (Input Pulse)</li>
+                </ul>
+
+                <h3>Absolute Acceleration</h3>
+                <p>The plot displays the <strong>Maximax Absolute Acceleration</strong> (Peak Response), calculated as:
+                </p>
+                <div class="equation">
+                    $$ \text{SRS}(f_n) = \max | \ddot{x}(t) | = \max | \ddot{z}(t) + \ddot{y}(t) | $$
+                </div>
+
+                <h3>Integration Method</h3>
+                <p>The response is computed client-side using a stable time-stepping integration scheme (Velocity
+                    Verlet) with adaptive time steps to ensuring numerical stability up to the highest frequencies of
+                    interest.</p>
+
+                <h3>References</h3>
+                <ul class="references-list">
+                    <li><strong>Harris' Shock and Vibration Handbook</strong>, 6th Ed., Ch. 26 (Shock Response
+                        Spectrum).</li>
+                    <li><strong>NASA-HDBK-7005</strong>, "Dynamic Environmental Criteria", 2001.</li>
+                    <li><strong>Steinberg, D. S.</strong>, "Vibration Analysis for Electronic Equipment",
+                        Wiley-Interscience.</li>
+                </ul>
+            </div>
+        </section>
+
         <footer>
-            <p>Stateless Tool | Runs entirely in your browser</p>
+            <p>Built by <strong>SideQuestForge</strong> | Runs entirely in your browser</p>
         </footer>
     </div>
     <script src="script.js"></script>
 </body>
+
 </html>
