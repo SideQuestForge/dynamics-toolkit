@@ -107,11 +107,13 @@
                 <div class="equation">
                     $$ \text{SRS}(f_n) = \max | \ddot{x}(t) | = \max | \ddot{z}(t) + \ddot{y}(t) | $$
                 </div>
-
-                <h3>Integration Method</h3>
-                <p>The response is computed client-side using a stable time-stepping integration scheme (Velocity
-                    Verlet) with adaptive time steps to ensuring numerical stability up to the highest frequencies of
-                    interest.</p>
+                <div class="math-block">
+                    <h4>Integration Method</h4>
+                    <p>The system uses a <strong>Velocity Verlet</strong> numerical integration scheme. This symplectic
+                        integrator is chosen for its stability in conserving energy for oscillatory systems. We
+                        over-sample the time domain (dt &lt; 1/20th of the highest natural period) to ensure numerical
+                        stability and peak-capture accuracy.</p>
+                </div>
 
                 <h3>References</h3>
                 <ul class="references-list">
