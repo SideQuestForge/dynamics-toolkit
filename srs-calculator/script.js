@@ -12,7 +12,8 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Initial Calc
-    calculateSRS();
+    // Trigger initial input handling to set description and visibility
+    handleInput();
 
     calculateBtn.addEventListener('click', calculateSRS);
 
@@ -30,11 +31,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
 let customData = null; // Stores { time: [], accel: [] }
 
+const pulseDescriptions = {
+    'half-sine': 'Classic impact pulse. Used for general shock testing.',
+    'sawtooth': 'Simulates crash tests and pyro-shocks. High high-frequency response.',
+    'rectangular': 'Theoretical maximum velocity change. Envelops complex events.',
+    'triangle-sym': 'Generic impulse shape.',
+    'haversine': 'Smooth, continuous-acceleration pulse (shaker table).',
+    'custom': 'User-uploaded CSV time history.'
+};
+
 function handleInput(e) {
     const pulseType = document.getElementById('pulseType').value;
     const fileGroup = document.getElementById('fileGroup');
     const ampGroup = document.getElementById('ampGroup');
     const durGroup = document.getElementById('durGroup');
+
+    // Update Description
+    document.getElementById('pulseDescription').textContent = pulseDescriptions[pulseType] || '';
 
     // Toggle Visibility
     if (pulseType === 'custom') {
@@ -173,6 +186,20 @@ function getPulseAcceleration(t, type, amp, duration) {
     } else if (type === 'sawtooth') {
         // Terminal Peak Sawtooth: Ramps up to A at Td, then drops.
         return amp * (t / duration);
+    } else if (type === 'rectangular') {
+        // Square wave: A for the whole duration
+        return amp;
+    } else if (type === 'triangle-sym') {
+        // Symmetrical Triangle: Peaks at Td/2
+        if (t <= duration / 2) {
+            return amp * (t / (duration / 2));
+        } else {
+            return amp * (1 - (t - duration / 2) / (duration / 2));
+        }
+    } else if (type === 'haversine') {
+        // Haversine Pulse: 0.5 * A * (1 - cos(2*pi*t/Td))
+        // This starts at 0, peaks at A at Td/2, ends at 0 at Td.
+        return amp * 0.5 * (1 - Math.cos(2 * Math.PI * t / duration));
     }
     return 0;
 }

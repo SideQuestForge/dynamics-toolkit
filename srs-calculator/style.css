@@ -201,3 +201,11 @@ footer {
     font-family: 'Times New Roman', serif;
     font-size: 1.1rem;
 }
+
+.input-hint {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    font-style: italic;
+    margin-top: 5px;
+    margin-bottom: 0;
+}
