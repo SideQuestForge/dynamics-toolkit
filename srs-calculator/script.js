@@ -468,6 +468,29 @@ document.addEventListener('DOMContentLoaded', () => {
             plotTimeHistory();
         });
     }
+
+    // Timeline scrubber for interactive animation control
+    const timelineScrub = document.getElementById('timelineScrub');
+    if (timelineScrub) {
+        timelineScrub.addEventListener('input', (e) => {
+            if (!animState.history) return;
+
+            // Calculate frame from percentage
+            const percent = parseFloat(e.target.value);
+            const totalFrames = animState.history.time.length;
+            animState.currentFrame = Math.floor((percent / 100) * (totalFrames - 1));
+
+            // Update time display
+            const time = animState.history.time[animState.currentFrame] * 1000;
+            document.getElementById('scrubTime').textContent = time.toFixed(2);
+
+            // Pause if playing and draw current frame
+            if (animState.isPlaying) {
+                togglePlayPause();
+            }
+            drawCurrentFrame();
+        });
+    }
 });
 
 // Called after SRS calculation to store pulse data
@@ -560,7 +583,7 @@ function plotTimeHistory() {
 
     const theme = getThemeColors();
     const h = animState.history;
-    const plotType = document.getElementById('responsePlotType')?.value || 'both';
+    const plotType = document.getElementById('responsePlotType')?.value || 'input-response';
 
     // Time in ms
     const timeMs = h.time.map(t => t * 1000);
@@ -571,28 +594,82 @@ function plotTimeHistory() {
     // Absolute acceleration (already in G)
     const absAccel = h.absAccel;
 
+    // Base acceleration (input, already in G)
+    const baseAccel = h.baseAccel;
+
     const traces = [];
 
-    // Displacement trace
-    if (plotType === 'displacement' || plotType === 'both') {
+    // Input + Response mode (shows base input and mass response on same plot)
+    if (plotType === 'input-response') {
+        // Base excitation (input)
+        traces.push({
+            x: timeMs,
+            y: baseAccel,
+            mode: 'lines',
+            name: 'Input ÿ (G)',
+            line: { color: '#238636', width: 2.5 },
+            fill: 'tozeroy',
+            fillcolor: 'rgba(35, 134, 54, 0.15)'
+        });
+        // Mass response (output)
+        traces.push({
+            x: timeMs,
+            y: absAccel,
+            mode: 'lines',
+            name: 'Response ẍ (G)',
+            line: { color: '#f85149', width: 2 }
+        });
+    }
+
+    // All mode: shows input, response acceleration, and displacement
+    if (plotType === 'all') {
+        // Base excitation (input)
+        traces.push({
+            x: timeMs,
+            y: baseAccel,
+            mode: 'lines',
+            name: 'Input ÿ (G)',
+            line: { color: '#238636', width: 2 },
+            fill: 'tozeroy',
+            fillcolor: 'rgba(35, 134, 54, 0.1)'
+        });
+        // Mass response (output)
+        traces.push({
+            x: timeMs,
+            y: absAccel,
+            mode: 'lines',
+            name: 'Response ẍ (G)',
+            line: { color: '#f85149', width: 2 }
+        });
+        // Displacement (on secondary axis)
+        traces.push({
+            x: timeMs,
+            y: scaledZ,
+            mode: 'lines',
+            name: 'Disp z (mm)',
+            yaxis: 'y2',
+            line: { color: theme.accent_color, width: 2 }
+        });
+    }
+
+    // Displacement trace (single)
+    if (plotType === 'displacement') {
         traces.push({
             x: timeMs,
             y: scaledZ,
             mode: 'lines',
             name: 'Disp. z (mm)',
-            yaxis: plotType === 'both' ? 'y' : 'y',
             line: { color: theme.accent_color, width: 2 }
         });
     }
 
-    // Acceleration trace
-    if (plotType === 'acceleration' || plotType === 'both') {
+    // Acceleration trace (single)
+    if (plotType === 'acceleration') {
         traces.push({
             x: timeMs,
             y: absAccel,
             mode: 'lines',
             name: 'Accel. ẍ (G)',
-            yaxis: plotType === 'both' ? 'y2' : 'y',
             line: { color: '#f85149', width: 2 }
         });
     }
@@ -606,7 +683,7 @@ function plotTimeHistory() {
             color: '#8b949e',
             gridcolor: theme.grid_color
         },
-        showlegend: plotType === 'both',
+        showlegend: (plotType === 'all' || plotType === 'input-response'),
         legend: {
             x: 0.5,
             y: 1.15,
@@ -614,26 +691,29 @@ function plotTimeHistory() {
             orientation: 'h',
             font: { size: 10, color: theme.font_color }
         },
-        margin: { t: 35, r: plotType === 'both' ? 60 : 20, l: 55, b: 35 },
+        margin: { t: 35, r: (plotType === 'all') ? 60 : 20, l: 55, b: 35 },
         font: { color: theme.font_color, size: 10 }
     };
 
-    if (plotType === 'both') {
-        // Dual y-axes
+    if (plotType === 'input-response') {
+        layout.yaxis = { title: 'Accel (G)', color: '#8b949e', gridcolor: theme.grid_color };
+        layout.title = { text: 'Input Excitation ÿ(t) vs Mass Response ẍ(t)', font: { size: 12, color: theme.font_color } };
+    } else if (plotType === 'all') {
+        // Dual y-axes: Accel on left, displacement on right
         layout.yaxis = {
-            title: 'z (mm)',
-            color: theme.accent_color,
+            title: 'Accel (G)',
+            color: '#8b949e',
             gridcolor: theme.grid_color,
             side: 'left'
         };
         layout.yaxis2 = {
-            title: 'ẍ (G)',
-            color: '#f85149',
+            title: 'z (mm)',
+            color: theme.accent_color,
             overlaying: 'y',
             side: 'right',
             gridcolor: 'transparent'
         };
-        layout.title = { text: 'Mass Response: Displacement & Acceleration', font: { size: 12, color: theme.font_color } };
+        layout.title = { text: 'Input ÿ, Response ẍ, and Displacement z', font: { size: 12, color: theme.font_color } };
     } else if (plotType === 'displacement') {
         layout.yaxis = { title: 'z (mm)', color: '#8b949e', gridcolor: theme.grid_color };
         layout.title = { text: 'Relative Displacement z(t)', font: { size: 12, color: theme.font_color } };
@@ -926,6 +1006,17 @@ function animate() {
     if (!animState.isPlaying || !animState.history) return;
 
     drawCurrentFrame();
+
+    // Sync timeline scrubber
+    const totalFrames = animState.history.time.length;
+    const percent = (animState.currentFrame / (totalFrames - 1)) * 100;
+    const scrubber = document.getElementById('timelineScrub');
+    const scrubTime = document.getElementById('scrubTime');
+    if (scrubber) scrubber.value = percent;
+    if (scrubTime) {
+        const time = animState.history.time[animState.currentFrame] * 1000;
+        scrubTime.textContent = time.toFixed(2);
+    }
 
     // Advance frame based on speed
     const frameStep = Math.max(1, Math.floor(animState.speed * 2));
