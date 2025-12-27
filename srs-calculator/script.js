@@ -388,3 +388,590 @@ function plotResults(freqs, srs, timeVector, pulseVector, type, amp, dur) {
 
     Plotly.newPlot('pulsePlotDiv', [pulseTrace], pulseLayout, config);
 }
+
+// ============================================
+// SDOF ANIMATION SYSTEM
+// ============================================
+
+// Store last calculated pulse data for animation
+let lastPulseData = null;
+
+// Animation state
+const animState = {
+    isPlaying: false,
+    currentFrame: 0,
+    speed: 1,
+    animationId: null,
+    history: null, // { time, z, absAccel, baseAccel }
+    maxZ: 1,
+    baseScale: 50 // pixels per G of base motion
+};
+
+// Initialize tab switching and animation controls
+document.addEventListener('DOMContentLoaded', () => {
+    // Tab switching
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const tabId = btn.dataset.tab;
+
+            // Update button states
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+
+            // Update content visibility
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            document.getElementById(tabId).classList.add('active');
+
+            // If switching to animation tab, check if we have data
+            if (tabId === 'sdof-animation' && lastPulseData) {
+                prepareAnimation();
+            }
+        });
+    });
+
+    // Frequency slider
+    const freqSlider = document.getElementById('animFreq');
+    if (freqSlider) {
+        freqSlider.addEventListener('input', () => {
+            const freq = Math.pow(10, parseFloat(freqSlider.value));
+            document.getElementById('freqValue').textContent = freq.toFixed(0);
+            if (lastPulseData) {
+                computeAnimationHistory();
+                resetAnimation();
+                drawCurrentFrame();
+            }
+        });
+    }
+
+    // Playback controls
+    const playPauseBtn = document.getElementById('playPauseBtn');
+    if (playPauseBtn) {
+        playPauseBtn.addEventListener('click', togglePlayPause);
+    }
+
+    const resetBtn = document.getElementById('resetBtn');
+    if (resetBtn) {
+        resetBtn.addEventListener('click', resetAnimation);
+    }
+
+    const speedSelect = document.getElementById('speedSelect');
+    if (speedSelect) {
+        speedSelect.addEventListener('change', (e) => {
+            animState.speed = parseFloat(e.target.value);
+        });
+    }
+
+    // Response plot type selector
+    const responsePlotType = document.getElementById('responsePlotType');
+    if (responsePlotType) {
+        responsePlotType.addEventListener('change', () => {
+            plotTimeHistory();
+        });
+    }
+});
+
+// Called after SRS calculation to store pulse data
+function storePulseData(timeVector, accelVector, qFactor) {
+    lastPulseData = {
+        time: [...timeVector],
+        accel: [...accelVector],
+        qFactor: qFactor,
+        dt: timeVector.length > 1 ? (timeVector[timeVector.length - 1] - timeVector[0]) / (timeVector.length - 1) : 0.001
+    };
+
+    // Show animation container, hide placeholder
+    const placeholder = document.getElementById('animationPlaceholder');
+    const container = document.getElementById('animationContainer');
+    if (placeholder) placeholder.style.display = 'none';
+    if (container) container.style.display = 'flex';
+
+    // Update Q display
+    const zeta = 1 / (2 * qFactor);
+    document.getElementById('animQDisplay').textContent = qFactor;
+    document.getElementById('animZetaDisplay').textContent = (zeta * 100).toFixed(1) + '%';
+}
+
+// Compute full time history for current frequency
+function computeAnimationHistory() {
+    if (!lastPulseData) return;
+
+    const freqSlider = document.getElementById('animFreq');
+    const fn = Math.pow(10, parseFloat(freqSlider.value));
+    const zeta = 1 / (2 * lastPulseData.qFactor);
+
+    const result = solveSDOFFullHistory(
+        lastPulseData.time,
+        lastPulseData.accel,
+        fn,
+        zeta,
+        lastPulseData.dt
+    );
+
+    animState.history = result;
+    animState.maxZ = Math.max(...result.z.map(Math.abs), 0.001);
+
+    // Update peak display
+    const peak = Math.max(...result.absAccel.map(Math.abs));
+    document.getElementById('animPeakDisplay').textContent = peak.toFixed(2);
+
+    // Plot time history 
+    plotTimeHistory();
+}
+
+// Full history SDOF solver (returns arrays)
+function solveSDOFFullHistory(time, baseAccel, fn, zeta, dt) {
+    const wn = 2 * Math.PI * fn;
+    const wn2 = wn * wn;
+    const c = 2 * zeta * wn;
+
+    const zHistory = [];
+    const absAccelHistory = [];
+
+    let z = 0;
+    let v = 0;
+
+    for (let i = 0; i < time.length; i++) {
+        const y_dd_i = baseAccel[i];
+
+        // Store current state
+        zHistory.push(z);
+
+        // Compute absolute acceleration: z'' + y'' 
+        const accel_rel = -y_dd_i - c * v - wn2 * z;
+        const abs_accel = accel_rel + y_dd_i;
+        absAccelHistory.push(abs_accel);
+
+        // Symplectic Euler integration
+        v = v + accel_rel * dt;
+        z = z + v * dt;
+    }
+
+    return {
+        time: time,
+        z: zHistory,
+        absAccel: absAccelHistory,
+        baseAccel: baseAccel
+    };
+}
+
+// Plot time history inset
+function plotTimeHistory() {
+    if (!animState.history) return;
+
+    const theme = getThemeColors();
+    const h = animState.history;
+    const plotType = document.getElementById('responsePlotType')?.value || 'both';
+
+    // Time in ms
+    const timeMs = h.time.map(t => t * 1000);
+
+    // Scale displacement for visibility (mm)
+    const scaledZ = h.z.map(z => z * 1000);
+
+    // Absolute acceleration (already in G)
+    const absAccel = h.absAccel;
+
+    const traces = [];
+
+    // Displacement trace
+    if (plotType === 'displacement' || plotType === 'both') {
+        traces.push({
+            x: timeMs,
+            y: scaledZ,
+            mode: 'lines',
+            name: 'Disp. z (mm)',
+            yaxis: plotType === 'both' ? 'y' : 'y',
+            line: { color: theme.accent_color, width: 2 }
+        });
+    }
+
+    // Acceleration trace
+    if (plotType === 'acceleration' || plotType === 'both') {
+        traces.push({
+            x: timeMs,
+            y: absAccel,
+            mode: 'lines',
+            name: 'Accel. ẍ (G)',
+            yaxis: plotType === 'both' ? 'y2' : 'y',
+            line: { color: '#f85149', width: 2 }
+        });
+    }
+
+    // Build layout based on plot type
+    let layout = {
+        paper_bgcolor: theme.paper_bgcolor,
+        plot_bgcolor: theme.plot_bgcolor,
+        xaxis: {
+            title: 'Time (ms)',
+            color: '#8b949e',
+            gridcolor: theme.grid_color
+        },
+        showlegend: plotType === 'both',
+        legend: {
+            x: 0.5,
+            y: 1.15,
+            xanchor: 'center',
+            orientation: 'h',
+            font: { size: 10, color: theme.font_color }
+        },
+        margin: { t: 35, r: plotType === 'both' ? 60 : 20, l: 55, b: 35 },
+        font: { color: theme.font_color, size: 10 }
+    };
+
+    if (plotType === 'both') {
+        // Dual y-axes
+        layout.yaxis = {
+            title: 'z (mm)',
+            color: theme.accent_color,
+            gridcolor: theme.grid_color,
+            side: 'left'
+        };
+        layout.yaxis2 = {
+            title: 'ẍ (G)',
+            color: '#f85149',
+            overlaying: 'y',
+            side: 'right',
+            gridcolor: 'transparent'
+        };
+        layout.title = { text: 'Mass Response: Displacement & Acceleration', font: { size: 12, color: theme.font_color } };
+    } else if (plotType === 'displacement') {
+        layout.yaxis = { title: 'z (mm)', color: '#8b949e', gridcolor: theme.grid_color };
+        layout.title = { text: 'Relative Displacement z(t)', font: { size: 12, color: theme.font_color } };
+    } else {
+        layout.yaxis = { title: 'ẍ (G)', color: '#8b949e', gridcolor: theme.grid_color };
+        layout.title = { text: 'Absolute Acceleration ẍ(t)', font: { size: 12, color: theme.font_color } };
+    }
+
+    Plotly.newPlot('timeHistoryPlot', traces, layout, { responsive: true });
+}
+
+// Prepare animation after switching tabs
+function prepareAnimation() {
+    computeAnimationHistory();
+    resetAnimation();
+    drawCurrentFrame();
+}
+
+// Draw the SDOF system at current frame - HORIZONTAL WALL-MOUNTED LAYOUT
+function drawCurrentFrame() {
+    const canvas = document.getElementById('sdofCanvas');
+    if (!canvas || !animState.history) return;
+
+    const ctx = canvas.getContext('2d');
+    const w = canvas.width;
+    const h = canvas.height;
+
+    // Get theme colors
+    const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+    const colors = {
+        bg: isLight ? '#f6f8fa' : '#161b22',
+        primary: isLight ? '#24292f' : '#f0f6fc',
+        secondary: isLight ? '#57606a' : '#8b949e',
+        accent: isLight ? '#0969da' : '#58a6ff',
+        spring: isLight ? '#1a7f37' : '#3fb950',
+        damper: isLight ? '#9a6700' : '#d29922',
+        mass: isLight ? '#0969da' : '#58a6ff',
+        wall: isLight ? '#6e7781' : '#484f58',
+        ground: isLight ? '#8b949e' : '#30363d'
+    };
+
+    ctx.fillStyle = colors.bg;
+    ctx.fillRect(0, 0, w, h);
+
+    const frame = animState.currentFrame;
+    const hist = animState.history;
+
+    // Get current values
+    const z = hist.z[frame] || 0;
+    const baseAccel = hist.baseAccel[frame] || 0;
+
+    // Geometry
+    const centerY = h / 2;
+    const wallWidth = 25;
+    const massSize = 70;
+    const groundY = centerY + massSize / 2 + 10;
+
+    // Scale displacement for visibility (adaptive)
+    const dispScale = 120 / (animState.maxZ || 1);
+    const scaledZ = z * dispScale;
+
+    // Base (wall) moves with input acceleration - integrate to get displacement-like motion
+    const scaledBase = baseAccel * 8; // Scale for visibility
+
+    // Positions
+    const wallX = 60 + scaledBase; // Wall moves horizontally with base excitation
+    const restMassX = 280; // Equilibrium position of mass center
+    const massX = restMassX + scaledZ; // Mass position = rest + relative displacement
+    const massLeft = massX - massSize / 2;
+    const massRight = massX + massSize / 2;
+    const massTop = centerY - massSize / 2;
+    const massBottom = centerY + massSize / 2;
+
+    // Draw ground/rails (hatched)
+    ctx.strokeStyle = colors.ground;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(30, groundY);
+    ctx.lineTo(w - 30, groundY);
+    ctx.stroke();
+
+    // Hatching for ground
+    for (let x = 40; x < w - 30; x += 15) {
+        ctx.beginPath();
+        ctx.moveTo(x, groundY);
+        ctx.lineTo(x - 8, groundY + 10);
+        ctx.stroke();
+    }
+
+    // Draw wall (moving with base excitation)
+    ctx.fillStyle = colors.wall;
+    ctx.fillRect(wallX - wallWidth, centerY - 80, wallWidth, 160);
+    ctx.strokeStyle = colors.primary;
+    ctx.lineWidth = 2;
+    ctx.strokeRect(wallX - wallWidth, centerY - 80, wallWidth, 160);
+
+    // Wall hatching (to indicate fixed/moving boundary)
+    ctx.strokeStyle = colors.secondary;
+    ctx.lineWidth = 1;
+    for (let y = centerY - 75; y < centerY + 75; y += 12) {
+        ctx.beginPath();
+        ctx.moveTo(wallX - wallWidth, y);
+        ctx.lineTo(wallX - wallWidth - 8, y + 8);
+        ctx.stroke();
+    }
+
+    // Connection points on wall
+    const springWallY = centerY - 25;
+    const damperWallY = centerY + 25;
+
+    // === Draw Spring (zigzag, horizontal) ===
+    const springStartX = wallX;
+    const springEndX = massLeft;
+    const springLength = springEndX - springStartX;
+    const coils = 10;
+    const coilWidth = springLength / coils;
+    const springAmplitude = 12;
+
+    ctx.strokeStyle = colors.spring;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(springStartX, springWallY);
+    for (let i = 0; i < coils; i++) {
+        const x1 = springStartX + i * coilWidth;
+        const x2 = x1 + coilWidth / 2;
+        const x3 = x1 + coilWidth;
+        const dir = i % 2 === 0 ? 1 : -1;
+        ctx.lineTo(x2, springWallY + dir * springAmplitude);
+        ctx.lineTo(x3, springWallY);
+    }
+    ctx.stroke();
+
+    // Spring label
+    ctx.font = 'bold 14px Inter, sans-serif';
+    ctx.fillStyle = colors.spring;
+    ctx.textAlign = 'center';
+    ctx.fillText('k', (springStartX + springEndX) / 2, springWallY - 20);
+
+    // === Draw Damper (dashpot, horizontal) ===
+    const damperStartX = wallX;
+    const damperEndX = massLeft;
+    const damperLength = damperEndX - damperStartX;
+    const cylinderLength = 40;
+    const cylinderHeight = 16;
+    const pistonLength = damperLength - cylinderLength - 20;
+
+    ctx.strokeStyle = colors.damper;
+    ctx.lineWidth = 3;
+
+    // Rod from wall
+    ctx.beginPath();
+    ctx.moveTo(damperStartX, damperWallY);
+    ctx.lineTo(damperStartX + 15, damperWallY);
+    ctx.stroke();
+
+    // Cylinder body
+    const cylStartX = damperStartX + 15;
+    ctx.fillStyle = colors.bg;
+    ctx.fillRect(cylStartX, damperWallY - cylinderHeight / 2, cylinderLength, cylinderHeight);
+    ctx.strokeRect(cylStartX, damperWallY - cylinderHeight / 2, cylinderLength, cylinderHeight);
+
+    // Piston rod (extends from cylinder to mass)
+    ctx.beginPath();
+    ctx.moveTo(cylStartX + cylinderLength, damperWallY);
+    ctx.lineTo(damperEndX, damperWallY);
+    ctx.stroke();
+
+    // Piston head inside cylinder
+    const pistonHeadX = cylStartX + cylinderLength - 8 - Math.min(15, Math.max(-15, scaledZ * 0.3));
+    ctx.fillStyle = colors.damper;
+    ctx.fillRect(pistonHeadX, damperWallY - cylinderHeight / 2 + 2, 6, cylinderHeight - 4);
+
+    // Damper label
+    ctx.fillStyle = colors.damper;
+    ctx.fillText('c', (damperStartX + damperEndX) / 2, damperWallY + 28);
+
+    // === Draw Mass ===
+    ctx.fillStyle = colors.mass;
+    ctx.fillRect(massLeft, massTop, massSize, massSize);
+    ctx.strokeStyle = colors.primary;
+    ctx.lineWidth = 2;
+    ctx.strokeRect(massLeft, massTop, massSize, massSize);
+
+    // Mass label
+    ctx.fillStyle = colors.primary;
+    ctx.font = 'bold 18px Inter, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('m', massX, centerY + 6);
+
+    // Small wheels/rollers under mass
+    ctx.fillStyle = colors.secondary;
+    ctx.beginPath();
+    ctx.arc(massLeft + 15, massBottom + 5, 6, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(massRight - 15, massBottom + 5, 6, 0, Math.PI * 2);
+    ctx.fill();
+
+    // === Annotations ===
+
+    // Base excitation arrow and label (at wall)
+    ctx.strokeStyle = colors.accent;
+    ctx.fillStyle = colors.accent;
+    ctx.lineWidth = 2;
+    const arrowY = centerY - 95;
+    const arrowLen = 30 * Math.sign(baseAccel) * Math.min(1, Math.abs(baseAccel) / 5);
+    if (Math.abs(arrowLen) > 2) {
+        ctx.beginPath();
+        ctx.moveTo(wallX - wallWidth / 2, arrowY);
+        ctx.lineTo(wallX - wallWidth / 2 + arrowLen, arrowY);
+        ctx.stroke();
+        // Arrowhead
+        const headDir = Math.sign(arrowLen);
+        ctx.beginPath();
+        ctx.moveTo(wallX - wallWidth / 2 + arrowLen, arrowY);
+        ctx.lineTo(wallX - wallWidth / 2 + arrowLen - headDir * 8, arrowY - 4);
+        ctx.lineTo(wallX - wallWidth / 2 + arrowLen - headDir * 8, arrowY + 4);
+        ctx.closePath();
+        ctx.fill();
+    }
+    ctx.font = '11px Roboto Mono, monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(`ÿ = ${baseAccel.toFixed(2)}G`, wallX - wallWidth / 2, arrowY - 12);
+
+    // Displacement indicator above mass
+    ctx.fillStyle = colors.accent;
+    ctx.font = '12px Roboto Mono, monospace';
+    const dispText = `z = ${(z * 1000).toFixed(3)} mm`;
+    ctx.fillText(dispText, massX, massTop - 15);
+
+    // Draw relative displacement arrow
+    if (Math.abs(scaledZ) > 3) {
+        const arrowStartX = restMassX;
+        const arrowEndX = massX;
+        ctx.strokeStyle = colors.accent;
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([4, 3]);
+        ctx.beginPath();
+        ctx.moveTo(arrowStartX, massTop - 5);
+        ctx.lineTo(arrowEndX, massTop - 5);
+        ctx.stroke();
+        ctx.setLineDash([]);
+    }
+
+    // Time indicator (top-left)
+    const time = hist.time[frame] * 1000;
+    ctx.fillStyle = colors.primary;
+    ctx.font = '12px Roboto Mono, monospace';
+    ctx.textAlign = 'left';
+    ctx.fillText(`t = ${time.toFixed(2)} ms`, 15, 25);
+
+    // Frame indicator (top-right)
+    ctx.fillStyle = colors.secondary;
+    ctx.textAlign = 'right';
+    ctx.fillText(`Frame ${frame + 1}/${hist.time.length}`, w - 15, 25);
+
+    // Legend/key (bottom right)
+    ctx.font = '10px Inter, sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillStyle = colors.secondary;
+    ctx.fillText('Wall motion = Base excitation ÿ(t)', w - 15, h - 25);
+    ctx.fillText('Mass motion = Relative response z(t)', w - 15, h - 12);
+
+    // Update time history marker
+    updateTimeMarker(time);
+}
+
+// Update position marker on time history plot
+function updateTimeMarker(timeMs) {
+    const plotDiv = document.getElementById('timeHistoryPlot');
+    if (!plotDiv || !plotDiv.data) return;
+
+    const theme = getThemeColors();
+
+    Plotly.relayout('timeHistoryPlot', {
+        shapes: [{
+            type: 'line',
+            x0: timeMs,
+            x1: timeMs,
+            yref: 'paper',
+            y0: 0,
+            y1: 1,
+            line: { color: '#f85149', width: 2, dash: 'dot' }
+        }]
+    });
+}
+
+// Animation loop
+function animate() {
+    if (!animState.isPlaying || !animState.history) return;
+
+    drawCurrentFrame();
+
+    // Advance frame based on speed
+    const frameStep = Math.max(1, Math.floor(animState.speed * 2));
+    animState.currentFrame += frameStep;
+
+    if (animState.currentFrame >= animState.history.time.length) {
+        animState.currentFrame = 0; // Loop
+    }
+
+    animState.animationId = requestAnimationFrame(animate);
+}
+
+// Play/Pause toggle
+function togglePlayPause() {
+    const btn = document.getElementById('playPauseBtn');
+
+    if (animState.isPlaying) {
+        animState.isPlaying = false;
+        cancelAnimationFrame(animState.animationId);
+        btn.textContent = '▶ Play';
+    } else {
+        animState.isPlaying = true;
+        btn.textContent = '⏸ Pause';
+        animate();
+    }
+}
+
+// Reset animation
+function resetAnimation() {
+    animState.isPlaying = false;
+    animState.currentFrame = 0;
+    cancelAnimationFrame(animState.animationId);
+
+    const btn = document.getElementById('playPauseBtn');
+    if (btn) btn.textContent = '▶ Play';
+
+    drawCurrentFrame();
+}
+
+// Modify the original calculateSRS to store pulse data
+const originalPlotResults = plotResults;
+plotResults = function (freqs, srs, timeVector, pulseVector, type, amp, dur) {
+    // Call original
+    originalPlotResults(freqs, srs, timeVector, pulseVector, type, amp, dur);
+
+    // Store for animation
+    const qFactor = parseFloat(document.getElementById('qFactor').value) || 10;
+    storePulseData(timeVector, pulseVector, qFactor);
+};

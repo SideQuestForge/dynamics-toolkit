@@ -84,8 +84,74 @@
             </section>
 
             <section class="results-panel">
-                <div id="pulsePlotDiv" style="width:100%; height:300px; margin-bottom: 20px;"></div>
-                <div id="plotDiv"></div>
+                <!-- Tab Navigation -->
+                <div class="tab-nav">
+                    <button class="tab-btn active" data-tab="srs-results">SRS Results</button>
+                    <button class="tab-btn" data-tab="sdof-animation">SDOF Animation</button>
+                </div>
+
+                <!-- Tab: SRS Results -->
+                <div id="srs-results" class="tab-content active">
+                    <div id="pulsePlotDiv" style="width:100%; height:300px; margin-bottom: 20px;"></div>
+                    <div id="plotDiv"></div>
+                </div>
+
+                <!-- Tab: SDOF Animation -->
+                <div id="sdof-animation" class="tab-content">
+                    <div class="animation-placeholder" id="animationPlaceholder">
+                        <p>Calculate an SRS first to enable animation</p>
+                    </div>
+                    <div class="animation-container" id="animationContainer" style="display: none;">
+                        <!-- Frequency Selector -->
+                        <div class="freq-selector">
+                            <label for="animFreq">Natural Frequency: <span id="freqValue">100</span> Hz</label>
+                            <input type="range" id="animFreq" min="1" max="2.301" step="0.01" value="2">
+                            <!-- Log scale: 10^1 to 10^2.301 ≈ 10-200 Hz for visible animation -->
+                            <p class="input-hint">Lower frequencies show clearer oscillation</p>
+                        </div>
+
+                        <!-- Canvas for Animation -->
+                        <div class="canvas-wrapper">
+                            <canvas id="sdofCanvas" width="600" height="400"></canvas>
+                        </div>
+
+                        <!-- Response Plot Type Selector -->
+                        <div class="plot-selector">
+                            <label>Show Response:</label>
+                            <select id="responsePlotType">
+                                <option value="both" selected>Both (z & ẍ)</option>
+                                <option value="displacement">Displacement z(t)</option>
+                                <option value="acceleration">Acceleration ẍ(t)</option>
+                            </select>
+                        </div>
+
+                        <!-- Time History Inset -->
+                        <div id="timeHistoryPlot" style="width:100%; height:180px; margin-top: 10px;"></div>
+
+                        <!-- Playback Controls -->
+                        <div class="playback-controls">
+                            <button id="playPauseBtn" class="control-btn">▶ Play</button>
+                            <button id="resetBtn" class="control-btn">⟲ Reset</button>
+                            <div class="speed-control">
+                                <label for="speedSelect">Speed:</label>
+                                <select id="speedSelect">
+                                    <option value="0.25">0.25x</option>
+                                    <option value="0.5">0.5x</option>
+                                    <option value="1" selected>1x</option>
+                                    <option value="2">2x</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Info Display -->
+                        <div class="animation-info">
+                            <p><strong>Q-Factor:</strong> <span id="animQDisplay">10</span> |
+                                <strong>Damping:</strong> <span id="animZetaDisplay">5%</span> |
+                                <strong>Peak Response:</strong> <span id="animPeakDisplay">--</span> G
+                            </p>
+                        </div>
+                    </div>
+                </div>
             </section>
         </main>
 
