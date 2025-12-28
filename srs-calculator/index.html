@@ -196,6 +196,43 @@
                         stability and peak-capture accuracy.</p>
                 </div>
 
+                <h3>Practical Interpretation</h3>
+                <p>Think of SRS as testing your shock against a shelf of tuning forks, each with a different natural
+                    frequency. Each point on the SRS curve answers: <strong>"If I have a component with this resonance
+                        frequency, what G-level will it experience?"</strong></p>
+
+                <div class="math-block">
+                    <h4>How to Use SRS</h4>
+                    <ol>
+                        <li><strong>Identify your component's resonance</strong> — e.g., a circuit board at 200 Hz</li>
+                        <li><strong>Read the SRS value at that frequency</strong> — e.g., 80G at 200 Hz</li>
+                        <li><strong>Qualify your component</strong> — test it to that level (plus margin, typically 3-6
+                            dB)</li>
+                        <li><strong>Redesign if needed</strong> — stiffen to shift resonance away from peaks, or add
+                            damping</li>
+                    </ol>
+                </div>
+
+                <div class="math-block">
+                    <h4>Reading the SRS Curve</h4>
+                    <ul>
+                        <li><strong>Peak location:</strong> Components with this resonance see the worst response</li>
+                        <li><strong>Low-frequency plateau:</strong> Slow components move with the input (quasi-static)
+                        </li>
+                        <li><strong>High-frequency roll-off:</strong> Fast components don't "see" the slow shock</li>
+                        <li><strong>Higher Q-factor:</strong> Less damping → sharper, higher peaks</li>
+                    </ul>
+                </div>
+
+                <div class="math-block" style="border-left: 3px solid #d29922; background: rgba(210, 153, 34, 0.1);">
+                    <h4>⚠️ Important Caveat</h4>
+                    <p>The SRS provides an <strong>upper bound estimate</strong>, not an exact prediction. Real
+                        components have multiple resonances, complex mode shapes, and interactions the idealized SDOF
+                        model doesn't capture. Use SRS as a <strong>screening tool</strong> and specification method —
+                        it's extremely useful for that purpose, which is why NASA, MIL-STD, and aerospace test specs all
+                        use it.</p>
+                </div>
+
                 <h3>References</h3>
                 <ul class="references-list">
                     <li><strong>Harris' Shock and Vibration Handbook</strong>, 6th Ed., Ch. 26 (Shock Response
