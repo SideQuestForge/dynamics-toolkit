@@ -512,6 +512,15 @@ function storePulseData(timeVector, accelVector, qFactor) {
     const zeta = 1 / (2 * qFactor);
     document.getElementById('animQDisplay').textContent = qFactor;
     document.getElementById('animZetaDisplay').textContent = (zeta * 100).toFixed(1) + '%';
+
+    // Auto-recompute animation if animState has been initialized (user has used animation before)
+    // This ensures animation updates when input params change
+    if (animState.history || document.getElementById('sdof-animation').classList.contains('active')) {
+        computeAnimationHistory();
+        resetAnimation();
+        drawCurrentFrame();
+        plotTimeHistory();
+    }
 }
 
 // Compute full time history for current frequency
