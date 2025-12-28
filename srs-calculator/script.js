@@ -131,16 +131,52 @@ function calculateSRS() {
 
     if (pulseType === 'custom') {
         if (!customData) return; // No file yet
-        timeVector = customData.time;
-        accelVector = customData.accel;
+
         displayAmp = customData.name || 'Custom CSV';
         displayDur = '';
 
-        // Calculate average dt
-        if (timeVector.length > 1) {
-            dt = (timeVector[timeVector.length - 1] - timeVector[0]) / (timeVector.length - 1);
-        } else {
-            return;
+        // Target dt same as generated pulses for consistent resolution
+        const fMAX_SRS = 2000;
+        const targetDt = 1 / (20 * fMAX_SRS); // 25 microseconds
+
+        // Get original data bounds
+        const origTime = customData.time;
+        const origAccel = customData.accel;
+        const pulseDuration = origTime[origTime.length - 1];
+
+        // Extend to at least 5x pulse duration or 100ms for ringdown
+        const targetDuration = Math.max(5 * pulseDuration, 0.1);
+
+        // Interpolate original data to finer time step
+        timeVector = [];
+        accelVector = [];
+        dt = targetDt;
+
+        for (let t = 0; t <= targetDuration; t += targetDt) {
+            timeVector.push(t);
+
+            if (t <= pulseDuration) {
+                // Linear interpolation within pulse
+                // Find surrounding points
+                let i = 0;
+                while (i < origTime.length - 1 && origTime[i + 1] < t) i++;
+
+                if (i >= origTime.length - 1) {
+                    accelVector.push(origAccel[origAccel.length - 1]);
+                } else {
+                    // Linear interpolation: a = a0 + (a1 - a0) * (t - t0) / (t1 - t0)
+                    const t0 = origTime[i];
+                    const t1 = origTime[i + 1];
+                    const a0 = origAccel[i];
+                    const a1 = origAccel[i + 1];
+                    const frac = (t - t0) / (t1 - t0);
+                    const interpAccel = a0 + (a1 - a0) * frac;
+                    accelVector.push(interpAccel);
+                }
+            } else {
+                // Zero padding for ringdown
+                accelVector.push(0);
+            }
         }
     } else {
         const amplitude = parseFloat(document.getElementById('amplitude').value);
@@ -540,10 +576,11 @@ function computeAnimationHistory() {
     );
 
     animState.history = result;
-    animState.maxZ = Math.max(...result.z.map(Math.abs), 0.001);
+    // Use reduce instead of spread to avoid stack overflow with large arrays
+    animState.maxZ = Math.max(result.z.reduce((max, val) => Math.max(max, Math.abs(val)), 0), 0.001);
 
     // Update peak display
-    const peak = Math.max(...result.absAccel.map(Math.abs));
+    const peak = result.absAccel.reduce((max, val) => Math.max(max, Math.abs(val)), 0);
     document.getElementById('animPeakDisplay').textContent = peak.toFixed(2);
 
     // Plot time history 
@@ -791,30 +828,39 @@ function drawCurrentFrame() {
     const groundY = centerY + massSize / 2 + 10;
 
     // UNIFIED SCALE for both wall displacement and mass relative displacement
-    // This ensures the physics relationship (mass = wall + spring + z) is visually correct
+    // Use reduce instead of spread to avoid stack overflow with large arrays
     let maxBaseDisp = 0;
-    if (hist.baseDisp) {
-        maxBaseDisp = Math.max(...hist.baseDisp.map(Math.abs));
+    if (hist.baseDisp && hist.baseDisp.length > 0) {
+        maxBaseDisp = hist.baseDisp.reduce((max, val) => Math.max(max, Math.abs(val)), 0);
     }
     const maxZ = animState.maxZ || 0.001;
 
     // Use the larger of the two motions to determine scale
-    const maxMotion = Math.max(maxBaseDisp, maxZ);
-    const unifiedScale = 100 / maxMotion; // Pixels per unit displacement
+    const maxMotion = Math.max(maxBaseDisp, maxZ, 0.0001); // Prevent division by zero
+
+    // Clamp scale to reasonable range (avoid extreme values for very small motions)
+    let unifiedScale = 100 / maxMotion;
+    unifiedScale = Math.min(unifiedScale, 1000000); // Cap at reasonable max
+    unifiedScale = Math.max(unifiedScale, 0.1);     // Cap at reasonable min
 
     const scaledBaseDisp = baseDisp * unifiedScale;
     const scaledZ = z * unifiedScale;
 
+    // Clamp displacements to canvas bounds
+    const maxDisp = 200; // Max pixels any displacement can move
+    const clampedBaseDisp = Math.max(-maxDisp, Math.min(maxDisp, scaledBaseDisp));
+    const clampedZ = Math.max(-maxDisp, Math.min(maxDisp, scaledZ));
+
     // Positions
     // Wall position moves with BASE DISPLACEMENT
-    const wallX = 60 + scaledBaseDisp;
+    const wallX = 60 + clampedBaseDisp;
 
     // Spring rest length (visual gap between wall and mass at equilibrium)
     const springRestLength = 150;
 
     // Mass ABSOLUTE position = wall position + spring rest length + relative displacement
     // Now both baseDisp and z use the SAME scale, so physics is preserved!
-    const massX = wallX + springRestLength + scaledZ;
+    const massX = wallX + springRestLength + clampedZ;
     const massLeft = massX - massSize / 2;
     const massRight = massX + massSize / 2;
     const massTop = centerY - massSize / 2;
