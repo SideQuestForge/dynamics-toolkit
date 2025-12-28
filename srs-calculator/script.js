@@ -779,9 +779,15 @@ function drawCurrentFrame() {
     const scaledBase = baseAccel * 8; // Scale for visibility
 
     // Positions
-    const wallX = 60 + scaledBase; // Wall moves horizontally with base excitation
-    const restMassX = 280; // Equilibrium position of mass center
-    const massX = restMassX + scaledZ; // Mass position = rest + relative displacement
+    // Wall position moves with base excitation
+    const wallX = 60 + scaledBase;
+
+    // Spring rest length (determines equilibrium gap between wall and mass)
+    const springRestLength = 180;
+
+    // Mass position = wall position + spring rest length + relative displacement
+    // This ensures mass moves with wall in absolute coordinates, even if z < 0 (spring compresses)
+    const massX = wallX + springRestLength + scaledZ;
     const massLeft = massX - massSize / 2;
     const massRight = massX + massSize / 2;
     const massTop = centerY - massSize / 2;
@@ -946,7 +952,8 @@ function drawCurrentFrame() {
 
     // Draw relative displacement arrow
     if (Math.abs(scaledZ) > 3) {
-        const arrowStartX = restMassX;
+        const equilibriumMassX = wallX + springRestLength; // Where mass would be at z=0
+        const arrowStartX = equilibriumMassX;
         const arrowEndX = massX;
         ctx.strokeStyle = colors.accent;
         ctx.lineWidth = 1.5;
