@@ -781,28 +781,30 @@ function drawCurrentFrame() {
     const massSize = 70;
     const groundY = centerY + massSize / 2 + 10;
 
-    // Scale displacement for visibility (adaptive)
-    const dispScale = 120 / (animState.maxZ || 1);
-    const scaledZ = z * dispScale;
-
-    // Scale base displacement for visibility
-    // Find max base displacement for scaling
+    // UNIFIED SCALE for both wall displacement and mass relative displacement
+    // This ensures the physics relationship (mass = wall + spring + z) is visually correct
     let maxBaseDisp = 0;
     if (hist.baseDisp) {
         maxBaseDisp = Math.max(...hist.baseDisp.map(Math.abs));
     }
-    const baseDispScale = maxBaseDisp > 0 ? 80 / maxBaseDisp : 1;
-    const scaledBaseDisp = baseDisp * baseDispScale;
+    const maxZ = animState.maxZ || 0.001;
+
+    // Use the larger of the two motions to determine scale
+    const maxMotion = Math.max(maxBaseDisp, maxZ);
+    const unifiedScale = 100 / maxMotion; // Pixels per unit displacement
+
+    const scaledBaseDisp = baseDisp * unifiedScale;
+    const scaledZ = z * unifiedScale;
 
     // Positions
-    // Wall position moves with BASE DISPLACEMENT (not acceleration)
+    // Wall position moves with BASE DISPLACEMENT
     const wallX = 60 + scaledBaseDisp;
 
-    // Spring rest length (determines equilibrium gap between wall and mass)
-    const springRestLength = 180;
+    // Spring rest length (visual gap between wall and mass at equilibrium)
+    const springRestLength = 150;
 
-    // Mass position = wall position + spring rest length + relative displacement
-    // This ensures mass moves with wall in absolute coordinates, even if z < 0 (spring compresses)
+    // Mass ABSOLUTE position = wall position + spring rest length + relative displacement
+    // Now both baseDisp and z use the SAME scale, so physics is preserved!
     const massX = wallX + springRestLength + scaledZ;
     const massLeft = massX - massSize / 2;
     const massRight = massX + massSize / 2;
