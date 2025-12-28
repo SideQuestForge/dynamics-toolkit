@@ -549,31 +549,40 @@ function solveSDOFFullHistory(time, baseAccel, fn, zeta, dt) {
 
     const zHistory = [];
     const absAccelHistory = [];
+    const baseDispHistory = []; // Base displacement via double integration
 
-    let z = 0;
-    let v = 0;
+    let z = 0;      // Relative displacement
+    let v = 0;      // Relative velocity
+    let baseVel = 0;  // Base velocity (single integral of accel)
+    let baseDisp = 0; // Base displacement (double integral of accel)
 
     for (let i = 0; i < time.length; i++) {
         const y_dd_i = baseAccel[i];
 
         // Store current state
         zHistory.push(z);
+        baseDispHistory.push(baseDisp);
 
         // Compute absolute acceleration: z'' + y'' 
         const accel_rel = -y_dd_i - c * v - wn2 * z;
         const abs_accel = accel_rel + y_dd_i;
         absAccelHistory.push(abs_accel);
 
-        // Symplectic Euler integration
+        // Integrate mass motion (Symplectic Euler)
         v = v + accel_rel * dt;
         z = z + v * dt;
+
+        // Integrate base motion to get displacement
+        baseVel = baseVel + y_dd_i * dt;
+        baseDisp = baseDisp + baseVel * dt;
     }
 
     return {
         time: time,
         z: zHistory,
         absAccel: absAccelHistory,
-        baseAccel: baseAccel
+        baseAccel: baseAccel,
+        baseDisp: baseDispHistory  // Now includes true displacement
     };
 }
 
@@ -764,6 +773,7 @@ function drawCurrentFrame() {
     // Get current values
     const z = hist.z[frame] || 0;
     const baseAccel = hist.baseAccel[frame] || 0;
+    const baseDisp = hist.baseDisp ? (hist.baseDisp[frame] || 0) : 0;
 
     // Geometry
     const centerY = h / 2;
@@ -775,12 +785,18 @@ function drawCurrentFrame() {
     const dispScale = 120 / (animState.maxZ || 1);
     const scaledZ = z * dispScale;
 
-    // Base (wall) moves with input acceleration - integrate to get displacement-like motion
-    const scaledBase = baseAccel * 8; // Scale for visibility
+    // Scale base displacement for visibility
+    // Find max base displacement for scaling
+    let maxBaseDisp = 0;
+    if (hist.baseDisp) {
+        maxBaseDisp = Math.max(...hist.baseDisp.map(Math.abs));
+    }
+    const baseDispScale = maxBaseDisp > 0 ? 80 / maxBaseDisp : 1;
+    const scaledBaseDisp = baseDisp * baseDispScale;
 
     // Positions
-    // Wall position moves with base excitation
-    const wallX = 60 + scaledBase;
+    // Wall position moves with BASE DISPLACEMENT (not acceleration)
+    const wallX = 60 + scaledBaseDisp;
 
     // Spring rest length (determines equilibrium gap between wall and mass)
     const springRestLength = 180;
