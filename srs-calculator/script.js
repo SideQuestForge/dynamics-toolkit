@@ -484,11 +484,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const time = animState.history.time[animState.currentFrame] * 1000;
             document.getElementById('scrubTime').textContent = time.toFixed(2);
 
-            // Pause if playing and draw current frame
-            if (animState.isPlaying) {
-                togglePlayPause();
+            // If not playing, just draw the current frame (scrub preview)
+            // If playing, animation loop will pick up from new position automatically
+            if (!animState.isPlaying) {
+                drawCurrentFrame();
             }
-            drawCurrentFrame();
         });
     }
 });
@@ -1053,14 +1053,28 @@ function togglePlayPause() {
 
 // Reset animation
 function resetAnimation() {
-    animState.isPlaying = false;
+    const wasPlaying = animState.isPlaying;
+
+    // Reset to frame 0
     animState.currentFrame = 0;
     cancelAnimationFrame(animState.animationId);
 
-    const btn = document.getElementById('playPauseBtn');
-    if (btn) btn.textContent = '▶ Play';
+    // Update scrubber position
+    const scrubber = document.getElementById('timelineScrub');
+    const scrubTime = document.getElementById('scrubTime');
+    if (scrubber) scrubber.value = 0;
+    if (scrubTime) scrubTime.textContent = '0.00';
 
-    drawCurrentFrame();
+    // If was playing, continue playing from the start
+    if (wasPlaying) {
+        animState.isPlaying = true;
+        animate();
+    } else {
+        animState.isPlaying = false;
+        const btn = document.getElementById('playPauseBtn');
+        if (btn) btn.textContent = '▶ Play';
+        drawCurrentFrame();
+    }
 }
 
 // Modify the original calculateSRS to store pulse data
