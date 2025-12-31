@@ -527,6 +527,14 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
+
+    // Anchor wall checkbox - redraw when toggled
+    const anchorWall = document.getElementById('anchorWall');
+    if (anchorWall) {
+        anchorWall.addEventListener('change', () => {
+            drawCurrentFrame();
+        });
+    }
 });
 
 // Called after SRS calculation to store pulse data
@@ -851,16 +859,23 @@ function drawCurrentFrame() {
     const clampedBaseDisp = Math.max(-maxDisp, Math.min(maxDisp, scaledBaseDisp));
     const clampedZ = Math.max(-maxDisp, Math.min(maxDisp, scaledZ));
 
-    // Positions
-    // Wall position moves with BASE DISPLACEMENT
-    const wallX = 60 + clampedBaseDisp;
+    // Check if anchor wall mode is enabled
+    const anchorWall = document.getElementById('anchorWall')?.checked || false;
 
-    // Spring rest length (visual gap between wall and mass at equilibrium)
+    // Positions
+    let wallX, massX;
     const springRestLength = 150;
 
-    // Mass ABSOLUTE position = wall position + spring rest length + relative displacement
-    // Now both baseDisp and z use the SAME scale, so physics is preserved!
-    const massX = wallX + springRestLength + clampedZ;
+    if (anchorWall) {
+        // ANCHOR MODE: Wall is fixed, mass shows RELATIVE motion only
+        wallX = 60;
+        massX = wallX + springRestLength + clampedZ;
+    } else {
+        // ABSOLUTE MODE: Wall moves with base displacement, mass shows absolute motion
+        wallX = 60 + clampedBaseDisp;
+        massX = wallX + springRestLength + clampedZ;
+    }
+
     const massLeft = massX - massSize / 2;
     const massRight = massX + massSize / 2;
     const massTop = centerY - massSize / 2;
@@ -1050,12 +1065,51 @@ function drawCurrentFrame() {
     ctx.textAlign = 'right';
     ctx.fillText(`Frame ${frame + 1}/${hist.time.length}`, w - 15, 25);
 
+    // === Draw Load Arrows in Anchor Mode ===
+    if (anchorWall && Math.abs(baseAccel) > 0.1) {
+        // Arrow direction based on base acceleration
+        const arrowDir = baseAccel > 0 ? 1 : -1;
+        const arrowLen = Math.min(Math.abs(baseAccel) * 5, 60); // Scale arrow length
+        const arrowY = centerY;
+        const arrowStartX = wallX - 10;
+        const arrowEndX = arrowStartX + (arrowDir * arrowLen);
+
+        ctx.strokeStyle = '#238636'; // Green for input
+        ctx.fillStyle = '#238636';
+        ctx.lineWidth = 3;
+
+        // Draw arrow shaft
+        ctx.beginPath();
+        ctx.moveTo(arrowStartX, arrowY);
+        ctx.lineTo(arrowEndX, arrowY);
+        ctx.stroke();
+
+        // Draw arrowhead
+        const headLen = 10;
+        ctx.beginPath();
+        ctx.moveTo(arrowEndX, arrowY);
+        ctx.lineTo(arrowEndX - arrowDir * headLen, arrowY - 6);
+        ctx.lineTo(arrowEndX - arrowDir * headLen, arrowY + 6);
+        ctx.closePath();
+        ctx.fill();
+
+        // Label
+        ctx.font = 'bold 11px Inter, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(`ÿ = ${baseAccel.toFixed(1)} G`, arrowStartX - 30, arrowY - 15);
+    }
+
     // Legend/key (bottom right)
     ctx.font = '10px Inter, sans-serif';
     ctx.textAlign = 'right';
     ctx.fillStyle = colors.secondary;
-    ctx.fillText('Wall motion = Base excitation ÿ(t)', w - 15, h - 25);
-    ctx.fillText('Mass motion = Relative response z(t)', w - 15, h - 12);
+    if (anchorWall) {
+        ctx.fillText('⚓ Anchor Mode: Wall fixed, arrows show applied load', w - 15, h - 25);
+        ctx.fillText('Mass shows RELATIVE displacement z(t)', w - 15, h - 12);
+    } else {
+        ctx.fillText('Wall motion = Base excitation ÿ(t)', w - 15, h - 25);
+        ctx.fillText('Mass motion = Absolute position', w - 15, h - 12);
+    }
 
     // Update time history marker
     updateTimeMarker(time);
